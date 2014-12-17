@@ -39,4 +39,9 @@ extern const float HORZ_CARD_SPACING;
 extern const sf::Vector2f DECK_LOC;
 extern const sf::Vector2f HOME_LOC;
 
+extern const int LOC_INVALID_INDICATOR;
+extern const int LOC_DECK_INDICATOR;
+extern const int LOC_DECK_FLIP_INDICATOR;
+extern const int LOC_HOME_INDICATOR;
+
 #endif // META_H

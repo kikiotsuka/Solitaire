@@ -34,6 +34,7 @@ public:
     //position related methods
     void set_position(sf::Vector2f pos);
     void set_center_position(sf::Vector2f pos);
+    void set_top_position(sf::Vector2f pos);
     void set_size(sf::Vector2f shape_size);
     sf::Vector2f get_top_left();
     sf::Vector2f get_top_right();

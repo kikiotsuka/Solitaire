@@ -45,18 +45,19 @@ void handle_events(sf::RenderWindow &window, Game &game) {
             }
         case sf::Event::MouseButtonPressed:
             if (e.mouseButton.button == sf::Mouse::Left) {
-                std::cout << "Left button press" << "\n";
                 game.mouse_pressed(sf::Vector2f(e.mouseButton.x, e.mouseButton.y));
             }
             break;
         case sf::Event::MouseButtonReleased:
             if (e.mouseButton.button == sf::Mouse::Left) {
-                std::cout << "Left button release" << "\n";
                 game.mouse_released(sf::Vector2f(e.mouseButton.x, e.mouseButton.y));
             }
             break;
         case sf::Event::MouseMoved:
             game.mouse_moved(sf::Vector2f(e.mouseMove.x, e.mouseMove.y));
+            break;
+        case sf::Event::MouseLeft:
+            game.mouse_left();
             break;
         }
     }

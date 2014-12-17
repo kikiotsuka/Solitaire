@@ -24,10 +24,10 @@ private:
     int card_counter;
     sf::Vector2i col_tracker;
     bool skip;
-    bool board_initialized;
     bool mouse_down;
     //draw card place locations
     sf::RectangleShape deck_rect;
+    sf::RectangleShape deck_flip_rect;
     std::vector<sf::RectangleShape> field_rect;
     std::vector<sf::RectangleShape> home_rect;
     sf::Texture texture;
@@ -35,6 +35,11 @@ private:
     void populate_deck();
     void init_card_home();
     float to_frame(float time);
+    //col is horz, row is vert
+    void get_loc_indicator(sf::Vector2f coord, int &col, int &row);
+    void home_selector(sf::Vector2f coord, int col);
+    void field_selector(sf::Vector2f coord, int row, int col);
+    void card_return_home();
 public:
     Game();
     void reset_game();
@@ -42,6 +47,7 @@ public:
     void mouse_pressed(sf::Vector2f coord);
     void mouse_released(sf::Vector2f coord);
     void mouse_moved(sf::Vector2f coord);
+    void mouse_left();
     void draw(sf::RenderWindow &window);
 };
 

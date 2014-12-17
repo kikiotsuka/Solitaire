@@ -58,6 +58,11 @@ void Card::set_center_position(sf::Vector2f pos) {
     loc.y = pos.y - CARD_SPRITE_HEIGHT / 2;
 }
 
+void Card::set_top_position(sf::Vector2f pos) {
+    set_center_position(pos);
+    s.setPosition(sf::Vector2f(pos.x, pos.y + (CARD_SPRITE_HEIGHT - VERT_CARD_SPACING) / 2.0f));
+}
+
 void Card::set_size(sf::Vector2f shape_size) {
     //todo implement me
 }
