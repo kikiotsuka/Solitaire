@@ -24,17 +24,15 @@ extern const int STATE_ANIMATION = 0;
 extern const int STATE_PLAYING = 1;
 
 extern const int STATE_ANIMATION_INITIALIZING_DECK = 0;
-extern const int STATE_ANIMATION_MOVE_AND_FLIP_CARD = 1;
-extern const int STATE_ANIMATION_MOVING_CARD = 2;
-extern const int STATE_ANIMATION_FLIP_CARD = 3;
-extern const int STATE_ANIMATION_SOLVE_DECK = 4;
+extern const int STATE_ANIMATION_RETURN_CARD = 1;
+extern const int STATE_ANIMATION_MOVE_AND_FLIP_CARD = 2;
+extern const int STATE_ANIMATION_MOVING_CARD = 3;
+extern const int STATE_ANIMATION_FLIP_CARD = 4;
+extern const int STATE_ANIMATION_SOLVE_DECK = 5;
 
 extern const float VERT_CARD_SPACING = 23.0f;
-extern const float HORZ_CARD_SPACING = 20.0f;
-extern const sf::Vector2f DECK_LOC((S_WIDTH / 7 - CARD_SPRITE_WIDTH) * 0.9, 20);
-extern const sf::Vector2f HOME_LOC(S_WIDTH - 4.2 * (HORZ_CARD_SPACING + CARD_SPRITE_WIDTH), 20);
 
-extern const int LOC_INVALID_INDICATOR = -1;
-extern const int LOC_DECK_INDICATOR = -2;
-extern const int LOC_DECK_FLIP_INDICATOR = -3;
-extern const int LOC_HOME_INDICATOR = -4;
+extern const int DECK = 0;
+extern const int HOME = 1;
+extern const int PLAY_FIELD = 2;
+extern const int EMPTY_SPOT = 3;

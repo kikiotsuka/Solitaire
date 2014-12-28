@@ -5,41 +5,31 @@
 #include <vector>
 #include <utility>
 #include "Card.h"
-#include "Path.h"
-#include "Flip.h"
 #include "Meta.h"
 
 class Game {
 private:
-    const int CARD_NUMBER = 52;
-    int master_state;
-    int detailed_state;
-    std::vector<Card> deck, deck_flipped;
-    std::vector<std::vector<Card> > field;
-    std::vector<std::vector<Card> > home;
-    std::vector<std::pair<sf::Vector2i, Path> > to_move;
-    std::vector<std::pair<sf::Vector2i, Flip> > to_flip;
-    std::vector<sf::Vector2i> cursor_move;
-    int frame_counter;
-    int card_counter;
+    int master_state, detailed_state;
+    std::vector<std::vector<std::vector<Card> > > field;
+    std::vector<std::vector<sf::RectangleShape> > field_rect;
+    //use for storing cards in animation, cursor moving
+    std::vector<Card> transit, cursor;
+    int frame_counter, card_counter;
     sf::Vector2i col_tracker;
-    bool skip;
-    bool mouse_down;
-    //draw card place locations
-    sf::RectangleShape deck_rect;
-    sf::RectangleShape deck_flip_rect;
-    std::vector<sf::RectangleShape> field_rect;
-    std::vector<sf::RectangleShape> home_rect;
+    bool skip, mouse_down;
     sf::Texture texture;
     Card backside;
-    void populate_deck();
-    void init_card_home();
+    //initialization
+    std::vector<Card> populate_deck();
+    void init_rect();
+    bool valid_placement(int status, int group, int column, int row);
+    int locate_card(sf::Vector2f coord, int &group, int &column, int &row);
+    //animation sequence
+    void anim_move_card();
+    void anim_flip_card();
+    void anim_return_card();
+
     float to_frame(float time);
-    //col is horz, row is vert
-    void get_loc_indicator(sf::Vector2f coord, int &col, int &row);
-    void home_selector(sf::Vector2f coord, int col);
-    void field_selector(sf::Vector2f coord, int row, int col);
-    void card_return_home();
 public:
     Game();
     void reset_game();

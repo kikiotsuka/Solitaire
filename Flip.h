@@ -1,19 +1,15 @@
 #ifndef FLIP_H
 #define FLIP_H
 
-class Flip {
+#include "Animation.h"
+
+class Flip : public Animation {
 private:
     float scale;
     float speed;
-    int frames;
-    bool done;
-    bool half_done;
 public:
     Flip(int frames);
-    float next();
-    float finish();
-    bool get_done();
-    bool get_half_done();
+    sf::Vector2f next();
 };
 
 #endif // FLIP_H

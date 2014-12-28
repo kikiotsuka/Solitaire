@@ -29,6 +29,7 @@ extern const int STATE_PLAYING;
 
 //detailed state
 extern const int STATE_ANIMATION_INITIALIZING_DECK;
+extern const int STATE_ANIMATION_RETURN_CARD;
 extern const int STATE_ANIMATION_MOVE_AND_FLIP_CARD;
 extern const int STATE_ANIMATION_MOVING_CARD;
 extern const int STATE_ANIMATION_FLIP_CARD;
@@ -39,9 +40,9 @@ extern const float HORZ_CARD_SPACING;
 extern const sf::Vector2f DECK_LOC;
 extern const sf::Vector2f HOME_LOC;
 
-extern const int LOC_INVALID_INDICATOR;
-extern const int LOC_DECK_INDICATOR;
-extern const int LOC_DECK_FLIP_INDICATOR;
-extern const int LOC_HOME_INDICATOR;
+extern const int DECK;
+extern const int HOME;
+extern const int PLAY_FIELD;
+extern const int EMPTY_SPOT;
 
 #endif // META_H

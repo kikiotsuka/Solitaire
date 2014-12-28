@@ -12,7 +12,7 @@ void handle_events(sf::RenderWindow &window, Game &game);
 int main() {
     sf::ContextSettings settings;
     settings.antialiasingLevel = 8;
-    sf::RenderWindow window(sf::VideoMode(S_WIDTH, S_HEIGHT), "Solitaire - By Mitsuru Otsuka", sf::Style::Default, settings);
+    sf::RenderWindow window(sf::VideoMode(S_WIDTH, S_HEIGHT), "Solitaire - By Mitsuru Otsuka", sf::Style::Close, settings);
 
     window.setKeyRepeatEnabled(false);
     window.setFramerateLimit(FPS);
@@ -41,6 +41,9 @@ void handle_events(sf::RenderWindow &window, Game &game) {
         case sf::Event::KeyPressed:
             if (e.key.code == sf::Keyboard::Q) {
                 window.close();
+                break;
+            } else if (e.key.code == sf::Keyboard::F2) {
+                game.reset_game();
                 break;
             }
         case sf::Event::MouseButtonPressed:

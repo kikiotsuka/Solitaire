@@ -1,376 +1,347 @@
-#include <SFML/Graphics.hpp>
-#include <cstdlib>
-#include <ctime>
-#include <vector>
 #include "Game.h"
 
 #include <iostream> //TODO remove me
 
-/*
-MASTER TODO:
-fix skipping animation sequence
-*/
-
 Game::Game() {
     srand(time(NULL));
     if (!texture.loadFromFile("solitaire_sprite_sheet.png")) {
-        master_state = -1;
-        detailed_state = -1;
+        std::cerr << "Fatal error: Could not load sprite sheet" << "\n";
     }
     texture.setSmooth(true);
     backside.set_texture(texture);
-    init_card_home();
+    init_rect();
     reset_game();
 }
 
 void Game::reset_game() {
-    deck.clear();
-    deck_flipped.clear();
-    field.clear();
-    home.clear();
-    to_move.clear();
-    to_flip.clear();
-    cursor_move.clear();
-    populate_deck();
+    //state vars
     master_state = STATE_ANIMATION;
     detailed_state = STATE_ANIMATION_INITIALIZING_DECK;
-    frame_counter = 0;
-    card_counter = 0;
+    //field handlers
+    field.clear();
+    std::vector<Card> populated_deck = populate_deck();
+    std::vector<std::vector<Card> > deck;
+    deck.push_back(populated_deck); //add face down deck
+    deck.push_back(std::vector<Card>()); //add flipped deck
+    std::vector<std::vector<Card> > home(4, std::vector<Card>()); //add empty homes
+    std::vector<std::vector<Card> > play_field(7, std::vector<Card>()); //add empty fields
+    //Reminder: field representation
+    //field[0] = deck -> field[0][0][X] = face down deck; field[0][1][X] = face up deck
+    //field[1] = home
+    //field[2] = play field
+    field.push_back(deck);
+    field.push_back(home);
+    field.push_back(play_field);
+
+    transit.clear();
+    cursor.clear();
+
+    frame_counter = card_counter = 0;
     col_tracker = sf::Vector2i(0, 0);
-    skip = false;
-    mouse_down = false;
+    skip = mouse_down = false;
 }
 
-/*
-idea: use frame_counter to time distribution times
-use card counter to track number of cards distributed, also to calculate relative positions
-create path class that recalculates position based on (start, end, time), where velocity is function of time
-0  1  2  3  4  5  6
+std::vector<Card> Game::populate_deck() {
+    std::vector<Card> shuffle_deck, ret;
+    //add all the cards
+    for (int i = SUIT_CLUBS; i <= SUIT_SPADES; i++) {
+        for (int j = 1; j <= 13; j++) {
+            shuffle_deck.push_back(Card(i, j, texture));
+        }
+    }
+    //randomly pull cards from sotrted deck
+    while (shuffle_deck.size() != 0) {
+        int index = rand() % shuffle_deck.size();
+        shuffle_deck[index].set_center_position(field_rect[0][0].getPosition());
+        ret.push_back(shuffle_deck[index]);
+        shuffle_deck.erase(shuffle_deck.begin() + index);
+    }
+    return ret;
+}
 
-1  2  3  4  5  6  7
-   8  9 10 11 12 13
-     14 15 16 17 18
-        19 20 21 22
-           23 24 25
-              26 27
-                 28
+void Game::init_rect() {
+    float spacer = 17.643f;
+    float top_spacer = 30.179f; //space between deck and play field
+    float card_spacer = 114.286f;
+    sf::RectangleShape r(sf::Vector2f(CARD_SPRITE_WIDTH, CARD_SPRITE_HEIGHT));
+    r.setOrigin(CARD_SPRITE_WIDTH / 2.0f, CARD_SPRITE_HEIGHT / 2.0f);
+    r.setFillColor(sf::Color::Transparent);
+    r.setOutlineThickness(-1.0f);
+    r.setOutlineColor(sf::Color::Black);
+    std::vector<sf::RectangleShape> deck, home, play_field;
+    for (int i = 0; i < 2; i++) {
+        r.setPosition(sf::Vector2f(spacer + CARD_SPRITE_WIDTH / 2.0f + card_spacer * i,
+                                    spacer + CARD_SPRITE_HEIGHT / 2.0f));
+        deck.push_back(sf::RectangleShape(r));
+    }
+    for (int i = 3; i < 7; i++) {
+        r.setPosition(sf::Vector2f(spacer + CARD_SPRITE_WIDTH / 2.0f + card_spacer * i,
+                                    spacer + CARD_SPRITE_HEIGHT / 2.0f));
+        home.push_back(sf::RectangleShape(r));
+    }
+    for (int i = 0; i < 7; i++) {
+        r.setPosition(sf::Vector2f(spacer + CARD_SPRITE_WIDTH / 2.0f + card_spacer * i,
+            spacer + CARD_SPRITE_HEIGHT * 1.5f + top_spacer));
+        play_field.push_back(sf::RectangleShape(r));
+    }
+    field_rect.push_back(deck);
+    field_rect.push_back(home);
+    field_rect.push_back(play_field);
+}
 
-for (int i = 0; i < 7; i++)
-    for (int j = 0; j <= i; j++)
-*/
 void Game::update() {
     if (master_state == STATE_ANIMATION) {
         frame_counter++;
-        if (detailed_state == STATE_ANIMATION_INITIALIZING_DECK && card_counter <= 27) {
-            if (skip || frame_counter >= to_frame(0.05f)) {
-                frame_counter = 0;
-                //track card location
-                //right to left one card at a time
-                int col = col_tracker.x;
-                col_tracker.y++;
-                if (col_tracker.y > col_tracker.x) {
-                    col_tracker.x++;
-                    col_tracker.y = 0;
-                }
-                //obtain destination and offset height
-                sf::Vector2f destination = field_rect[col].getPosition();
-                destination.y += VERT_CARD_SPACING * field[col].size();
-                //create path of card
-                Path path(DECK_LOC, destination, to_frame(0.3f));
-                sf::Vector2i pile(col, field[col].size());
-                std::pair<sf::Vector2i, Path> moving_card(pile, path);
-                //add to list of cards to move
-                to_move.push_back(moving_card);
-                //move card
-                field[col].push_back(deck.back());
-                deck.pop_back();
-                card_counter++;
-            }
-        } else if (detailed_state == STATE_ANIMATION_MOVE_AND_FLIP_CARD) {
-
-        } else if (detailed_state == STATE_ANIMATION_MOVING_CARD) {
-            if (skip || frame_counter >= to_frame(0.05f)) {
-                if (!cursor_move.empty()) {
-                    frame_counter = 0;
-                    sf::Vector2i card_to_move = cursor_move[0];
-                    sf::Vector2f destination(field_rect[card_to_move.x].getPosition().x,
-                        field_rect[card_to_move.x].getPosition().y + VERT_CARD_SPACING * card_to_move.y);
-                    sf::Vector2f card_loc = field[card_to_move.x][card_to_move.y].get_top_left();
-                    Path path(sf::Vector2f(card_loc.x, card_loc.y + (CARD_SPRITE_HEIGHT - VERT_CARD_SPACING) / 2), destination, to_frame(0.3f));
-                    to_move.push_back(std::pair<sf::Vector2i, Path>(card_to_move, path));
-                    cursor_move.erase(cursor_move.begin());
-                }
-            }
-        } else if (detailed_state == STATE_ANIMATION_FLIP_CARD) {
-
-        } else if (detailed_state == STATE_ANIMATION_SOLVE_DECK) {
-
-        }
-    }
-    //animation updates
-    if (master_state == STATE_ANIMATION) {
-        //card mover
-        for (int i = 0; i < to_move.size(); i++) {
-            sf::Vector2i loc = to_move[i].first;
-            if (skip) {
-                field[loc.x][loc.y].set_position(to_move[i].second.finish());
-            } else {
-                field[loc.x][loc.y].set_position(to_move[i].second.next());
-            }
-            if (to_move[i].second.get_done()) {
-                //field is full
-                if (loc.y == loc.x && detailed_state == STATE_ANIMATION_INITIALIZING_DECK) {
-                    if (skip) {
-                        field[loc.x][loc.y].set_state(CARD_FACE_UP);
-                    } else {
-                        to_flip.push_back(std::pair<sf::Vector2i, Flip>(to_move[i].first, Flip(to_frame(0.3f))));
+        if (skip || frame_counter >= to_frame(0.05f)) {
+            frame_counter = 0;
+            if (detailed_state == STATE_ANIMATION_INITIALIZING_DECK) {
+                if (card_counter <= 27) {
+                    //destination of card
+                    int col = col_tracker.x;
+                    sf::Vector2f destination = field_rect[PLAY_FIELD][col].getPosition();
+                    destination.y += VERT_CARD_SPACING * col_tracker.y;
+                    int animation_type = STATE_ANIMATION_MOVING_CARD;
+                    if (col == col_tracker.y) {
+                        animation_type = STATE_ANIMATION_MOVE_AND_FLIP_CARD;
+                    }
+                    Position p(destination, sf::Vector3i(DECK, 0, field[DECK][0].size()), sf::Vector3i(PLAY_FIELD, col, col_tracker.y));
+                    field[DECK][0].back().init_animation(animation_type, p, to_frame(0.3f));
+                    transit.push_back(field[DECK][0].back());
+                    field[DECK][0].pop_back();
+                    card_counter++;
+                    col_tracker.y++;
+                    if (col_tracker.y > col_tracker.x) {
+                        col_tracker.x++;
+                        col_tracker.y = 0;
                     }
                 }
-                to_move.erase(to_move.begin() + i--);
+            } else if (detailed_state == STATE_ANIMATION_RETURN_CARD) {
+                if (!cursor.empty()) {
+                    Card c = cursor.front();
+                    Position p = c.get_position_data();
+                    p.coord.second = p.coord.first;
+                    p.loc.second = p.loc.first;
+                    c.init_animation(STATE_ANIMATION_MOVING_CARD, p, to_frame(0.2f));
+                    transit.push_back(c);
+                    cursor.erase(cursor.begin());
+                }
+            } else if (detailed_state == STATE_ANIMATION_SOLVE_DECK) {
+                //TODO implement solving deck
             }
         }
-        //card flipper
-        for (int i = 0; i < to_flip.size(); i++) {
-            sf::Vector2i loc = to_flip[i].first;
+        //update aimations
+        for (int i = 0; i < transit.size(); i++) {
             if (skip) {
-                field[loc.x][loc.y].set_scale(to_flip[i].second.finish());
-                field[loc.x][loc.y].set_state(CARD_FACE_UP);
+                transit[i].finish();
             } else {
-                field[loc.x][loc.y].set_scale(to_flip[i].second.next());
-                if (to_flip[i].second.get_half_done()) {
-                    field[loc.x][loc.y].set_state(CARD_FACE_UP);
+                transit[i].next();
+            }
+            if (transit[i].animation_finish()) {
+                Position p = transit[i].get_position_data();
+                sf::Vector3i loc = p.loc.second;
+                field[loc.x][loc.y].push_back(transit[i]);
+                transit.erase(transit.begin() + i--);
+                if (transit.empty()) {
+                    if (detailed_state == STATE_ANIMATION_INITIALIZING_DECK) {
+                        if (card_counter > 27) {
+                            master_state = STATE_PLAYING;
+                        }
+                    } else if (cursor.empty()) {
+                        master_state = STATE_PLAYING;
+                    }
                 }
             }
-            if (to_flip[i].second.get_done()) {
-                to_flip.erase(to_flip.begin() + i--);
-            }
         }
-    }
-    if (master_state == STATE_ANIMATION) {
-        if (detailed_state == STATE_ANIMATION_INITIALIZING_DECK) {
-            if (card_counter > 27 && to_move.empty() && to_flip.empty())
-                master_state = STATE_PLAYING;
-        } else if (detailed_state == STATE_ANIMATION_MOVE_AND_FLIP_CARD) {
-
-        } else if (detailed_state == STATE_ANIMATION_MOVING_CARD) {
-            if (cursor_move.empty() && to_move.empty() && to_flip.empty())
-                master_state = STATE_PLAYING;
-        } else if (detailed_state == STATE_ANIMATION_FLIP_CARD) {
-
-        } else if (detailed_state == STATE_ANIMATION_SOLVE_DECK) {
-
-        }
-    }
-    if (skip && master_state == STATE_PLAYING) {
-        skip = false;
     }
 }
 
+bool Game::valid_placement(int status, int group, int column, int row) {
+    if (status == -1) return false;
+    Card c = cursor.front();
+    if (status == EMPTY_SPOT) {
+        if (cursor.size() == 1) {
+            if (group == HOME && c.get_value() == 1) {
+                return true;
+            } else if (group == PLAY_FIELD && c.get_value() == 13) {
+                return true;
+            }
+        }
+    } else {
+        Card above = field[group][column][row];
+        if (status == HOME) {
+            if (above.get_value() + 1 == c.get_value()) {
+                return above.get_suit() == c.get_suit();
+            }
+        } else if (status == PLAY_FIELD) {
+            if (above.get_value() == c.get_value() + 1) {
+                return above.get_color() ^ c.get_color();
+            }
+        }
+    }
+    return false;
+}
+
+int Game::locate_card(sf::Vector2f coord, int &group, int &column, int &row) {
+    group = column = row = -1;
+    for (int i = DECK; i <= PLAY_FIELD; i++) {
+        for (int j = 0; j < field[i].size(); j++) {
+            for (int k = field[i][j].size() - 1; k >= 0; k--) {
+                Card c = field[i][j][k];
+                if (c.get_sprite().getGlobalBounds().contains(coord)) {
+                    //record the location
+                    group = i;
+                    //note, these are flipped because of the flipped representation of solitaire field
+                    row = k;
+                    column = j;
+                    return i; //return the group
+                }
+            }
+        }
+    }
+    for (int i = 0; i < field_rect.size(); i++) {
+        for (int j = 0; j < field_rect[i].size(); j++) {
+            sf::RectangleShape r = field_rect[i][j];
+            if (r.getGlobalBounds().contains(coord)) {
+                group = i;
+                column = j;
+                row = -1;
+                return EMPTY_SPOT; //empty location
+            }
+        }
+    }
+    return -1; //invalid loc
+}
+
+void Game::anim_move_card() {
+    master_state = STATE_ANIMATION;
+    detailed_state = STATE_ANIMATION_MOVING_CARD;
+}
+
+void Game::anim_flip_card() {
+    master_state = STATE_ANIMATION;
+    detailed_state = STATE_ANIMATION_FLIP_CARD;
+}
+
+void Game::anim_return_card() {
+    master_state = STATE_ANIMATION;
+    detailed_state = STATE_ANIMATION_RETURN_CARD;
+}
+
 void Game::mouse_pressed(sf::Vector2f coord) {
-    if (master_state == STATE_ANIMATION) {
+    if (master_state == STATE_ANIMATION && detailed_state != STATE_ANIMATION_FLIP_CARD) {
         skip = true;
-        while (skip) {
+        while (master_state != STATE_PLAYING) {
             update();
         }
-    } else if (master_state == STATE_PLAYING) {
-        int row, col;
-        row = col = LOC_INVALID_INDICATOR;
-        get_loc_indicator(coord, col, row);
-        if (row == LOC_DECK_INDICATOR) {
-            std::cout << "Deck clicked" << "\n";
-        } else if (row == LOC_DECK_FLIP_INDICATOR) {
-            std::cout << "Flipped cards clicked" << "\n";
-        } else if (row == LOC_HOME_INDICATOR) {
-            std::cout << "Home of " << col + 1 << " clicked" << "\n";
-        } else if (row > LOC_INVALID_INDICATOR) {
-            std::cout << "field clicked" << "\n";
-            mouse_down = true;
-            for (int i = row; i < field[col].size(); i++) {
-                cursor_move.push_back(sf::Vector2i(col, i));
+        skip = false;
+    } else {
+        int group, column, row;
+        int status = locate_card(coord, group, column, row);
+        if (status >= HOME && status <= PLAY_FIELD) {
+            //click on a face up card
+            if (field[group][column][row].get_flip_state() == CARD_FACE_UP) {
+                mouse_down = true;
+                for (int i = row; i < field[group][column].size(); i++) {
+                    Card c = field[group][column][i];
+                    Position p = c.get_position_data();
+                    p.coord.first = field[group][column][i].get_center();
+                    p.loc.first = sf::Vector3i(group, column, i);
+                    c.set_position_data(p);
+                    cursor.push_back(c);
+                    field[group][column].erase(field[group][column].begin() + i--);
+                    mouse_moved(coord);
+                }
+            } else { //potentially flip a face down card
+                if (field[group][column].size() - 1 == row) {
+                    anim_flip_card();
+                    field[group][column][row].init_animation(STATE_ANIMATION_FLIP_CARD, to_frame(0.3f));
+                    transit.push_back(field[group][column][row]);
+                    field[group][column].pop_back();
+                }
             }
-            mouse_moved(coord);
+        } else if (status == DECK || status == EMPTY_SPOT && group == DECK) {
+            //TODO deck clicked
+            std::cout << "Deck clicked" << "\n";
         }
     }
 }
 
 void Game::mouse_released(sf::Vector2f coord) {
-    if (mouse_down) { //validate card release location is valid or not
-        int row, col;
-        get_loc_indicator(coord, col, row);
-        if (row == LOC_HOME_INDICATOR) { //on home
-            home_selector(coord, col);
-        } else if (row > LOC_INVALID_INDICATOR) { //valid on field
-            field_selector(coord, row, col);
-        } else { //invalid
-            card_return_home();
+    if (mouse_down) {
+        mouse_down = false;
+        int group, column, row;
+        int status = locate_card(coord, group, column, row);
+        if (valid_placement(status, group, column, row)) {
+            anim_move_card();
+            for (int i = 0; i < cursor.size(); i++) {
+                Position p = cursor[i].get_position_data();
+                p.loc.second = sf::Vector3i(group, column, row + i + 1);
+                p.coord.second = field_rect[group][column].getPosition();
+                if (group != HOME) {
+                    p.coord.second.y += VERT_CARD_SPACING * (row + i + 1);
+                }
+                cursor[i].init_animation(STATE_ANIMATION_MOVING_CARD, p, to_frame(0.1f));
+                transit.push_back(cursor[i]);
+            }
+            cursor.clear();
+        } else {
+            anim_return_card();
         }
     }
 }
 
 void Game::mouse_moved(sf::Vector2f coord) {
     if (mouse_down) {
-        for (int i = 0; i < cursor_move.size(); i++) {
-            sf::Vector2i loc = cursor_move[i];
-            field[loc.x][loc.y].set_top_position(sf::Vector2f(coord.x, coord.y + VERT_CARD_SPACING * i));
+        for (int i = 0; i < cursor.size(); i++) {
+            cursor[i].set_cursor_hold_position(sf::Vector2f(coord.x, coord.y + VERT_CARD_SPACING * i));
         }
     }
 }
 
 void Game::mouse_left() {
-    mouse_down = false;
-    if (!cursor_move.empty()) {
-        card_return_home();
+    if (mouse_down) {
+        mouse_down = false;
+        anim_return_card();
     }
 }
 
 void Game::draw(sf::RenderWindow &window) {
-    //draw boxes for card placable areas
-    window.draw(deck_rect);
-    window.draw(deck_flip_rect);
+    //draw all rects
     for (int i = 0; i < field_rect.size(); i++) {
-        window.draw(field_rect[i]);
-    }
-    for (int i = 0; i < home_rect.size(); i++) {
-        window.draw(home_rect[i]);
-    }
-    //draw deck
-    if (deck.size() > 0) {
-        backside.set_position(DECK_LOC);
-        backside.set_scale(1.0f);
-        window.draw(backside.get_sprite());
-    }
-    //draw face up cards
-    if (deck_flipped.size() > 0) {
-        window.draw(deck_flipped.back().get_sprite());
-    }
-    //draw the cards on the field
-    for (int i = 0; i < field.size(); i++) {
-        for(int j = 0; j < field[i].size(); j++) {
-            if (field[i][j].get_state() == CARD_FACE_DOWN) {
-                backside.set_position(field[i][j].get_top_left());
-                backside.set_scale(field[i][j].get_scale());
-                window.draw(backside.get_sprite());
-            } else if (field[i][j].get_state() == CARD_FACE_UP) {
-                if (std::find(cursor_move.begin(), cursor_move.end(), sf::Vector2i(i, j)) == cursor_move.end()) {
-                    window.draw(field[i][j].get_sprite());
-                }
-            }
+        for (int j = 0; j < field_rect[i].size(); j++) {
+            window.draw(field_rect[i][j]);
         }
     }
-    for (int i = 0; i < to_move.size(); i++) {
-        int x_loc = to_move[i].first.x;
-        int y_loc = to_move[i].first.y;
-        if (field[x_loc][y_loc].get_state() == CARD_FACE_UP) {
-            window.draw(field[x_loc][y_loc].get_sprite());
-        } else {
-            backside.set_position(field[x_loc][y_loc].get_top_left());
-            backside.set_scale(field[x_loc][y_loc].get_scale());
-            window.draw(backside.get_sprite());
+    //draw deck if it't not empty
+    if (!field[DECK][0].empty()) {
+        field[DECK][0].back().draw(window, backside);
+    }
+    //draw cards on unflipped deck
+    //TODO implement drawing cards on unflipped deck, possibly implement 3 card rule
+    //draw cards on home
+    for (int i = 0; i < field[HOME].size(); i++) {
+        if (!field[HOME][i].empty()) {
+            field[HOME][i].back().draw(window, backside);
         }
     }
-    for (int i = 0; i < cursor_move.size(); i++) {
-        window.draw(field[cursor_move[i].x][cursor_move[i].y].get_sprite());
-    }
-}
-
-void Game::populate_deck() {
-    std::vector<Card> tmp_deck;
-    for (int i = SUIT_CLUBS; i <= SUIT_SPADES; i++) {
-        for (int j = 1; j <= 13; j++) {
-            tmp_deck.push_back(Card(i, j, texture));
+    //draw cards on field
+    for (int i = 0; i < field[PLAY_FIELD].size(); i++) {
+        for (int j = 0; j < field[PLAY_FIELD][i].size(); j++) {
+            field[PLAY_FIELD][i][j].draw(window, backside);
         }
     }
-    while (tmp_deck.size() != 0) {
-        int index = rand() % tmp_deck.size();
-        tmp_deck[index].set_position(DECK_LOC);
-        deck.push_back(tmp_deck[index]);
-        tmp_deck.erase(tmp_deck.begin() + index);
+    //draw cards in animation state
+    for (int i = 0; i < transit.size(); i++) {
+        transit[i].draw(window, backside);
     }
-    for (int i = 0; i < 7; i++) {
-        field.push_back(std::vector<Card>());
+    //draw cards on cursor
+    for (int i = 0; i < cursor.size(); i++) {
+        cursor[i].draw(window, backside);
     }
-}
-
-void Game::init_card_home() {
-    sf::RectangleShape r(sf::Vector2f((float) CARD_SPRITE_WIDTH, (float) CARD_SPRITE_HEIGHT));
-    r.setPosition(DECK_LOC);
-    r.setFillColor(sf::Color::Transparent);
-    r.setOutlineThickness(-1);
-    r.setOutlineColor(sf::Color::Black);
-    deck_rect = sf::RectangleShape(r);
-    sf::RectangleShape r2 = sf::RectangleShape(r);
-    r.setPosition(HOME_LOC);
-    for (int i = 0; i < 4; i++) {
-        home_rect.push_back(r);
-        r.setPosition(HOME_LOC.x + (i + 1) * (CARD_SPRITE_WIDTH + HORZ_CARD_SPACING), HOME_LOC.y);
-    }
-    float w = S_WIDTH / 7 - CARD_SPRITE_WIDTH;
-    for (int i = 0; i < 7; i++) {
-        r.setPosition(i * CARD_SPRITE_WIDTH + (i + 1) * w * 0.9, CARD_SPRITE_HEIGHT + 50);
-        field_rect.push_back(r);
-    }
-    r2.setPosition(sf::Vector2f(field_rect[1].getPosition().x, DECK_LOC.y));
-    deck_flip_rect = r2;
 }
 
 //takes given time and calculates equivalent FPS value
 float Game::to_frame(float time) {
     //1 second = 60 FPS
     return time * FPS;
-}
-
-void Game::get_loc_indicator(sf::Vector2f coord, int &col, int &row) {
-    col = row = LOC_INVALID_INDICATOR;
-    for (col = 0; col < 7; col++) {
-        sf::RectangleShape r = field_rect[col];
-        if (coord.x >= r.getPosition().x && coord.x <= r.getPosition().x + r.getSize().x)
-            break;
-    }
-    if (col < 7) {
-        for (row = field[col].size() - 1; row >= 0; row--) {
-            if (field[col][row].get_sprite().getGlobalBounds().contains(coord)) {
-                if (field[col][row].get_state() == CARD_FACE_UP && //precautionary safe guard, not sure if required
-                    std::find(cursor_move.begin(), cursor_move.end(), sf::Vector2i(col, row)) == cursor_move.end()) {
-                    break;
-                } else {
-                    row = LOC_INVALID_INDICATOR;
-                    col = LOC_INVALID_INDICATOR;
-                    break;
-                }
-            }
-        }
-    }
-    if (row == LOC_INVALID_INDICATOR) {
-        if (deck_rect.getGlobalBounds().contains(coord)) {
-            row = LOC_DECK_INDICATOR;
-            col = 0;
-        } else if (deck_flip_rect.getGlobalBounds().contains(coord)) {
-            row = LOC_DECK_FLIP_INDICATOR;
-            col = 0;
-        } else {
-            for (int i = 0; i < home_rect.size(); i++) {
-                if (home_rect[i].getGlobalBounds().contains(coord)) {
-                    row = LOC_HOME_INDICATOR;
-                    col = i;
-                    break;
-                }
-            }
-        }
-    }
-}
-
-void Game::home_selector(sf::Vector2f coord, int col) {
-    std::cout << "Home selected" << "\n";
-    card_return_home();
-}
-
-void Game::field_selector(sf::Vector2f coord, int row, int col) {
-    std::cout << "Field selected" << "\n";
-    card_return_home();
-}
-
-void Game::card_return_home() {
-    master_state = STATE_ANIMATION;
-    detailed_state = STATE_ANIMATION_MOVING_CARD;
-    frame_counter = 0;
 }
