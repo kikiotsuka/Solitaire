@@ -15,6 +15,7 @@ private:
     //use for storing cards in animation, cursor moving
     std::vector<Card> transit, cursor;
     int frame_counter, card_counter;
+    float frame_delay;
     sf::Vector2i col_tracker;
     bool skip, mouse_down;
     sf::Texture texture;
@@ -28,6 +29,8 @@ private:
     void anim_move_card();
     void anim_flip_card();
     void anim_return_card();
+    void anim_move_and_flip_card();
+    void anim_flip_deck();
 
     float to_frame(float time);
 public:

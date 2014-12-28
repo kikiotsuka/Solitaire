@@ -38,6 +38,7 @@ void Game::reset_game() {
 
     frame_counter = card_counter = 0;
     col_tracker = sf::Vector2i(0, 0);
+    frame_delay = 0.05f;
     skip = mouse_down = false;
 }
 
@@ -92,7 +93,7 @@ void Game::init_rect() {
 void Game::update() {
     if (master_state == STATE_ANIMATION) {
         frame_counter++;
-        if (skip || frame_counter >= to_frame(0.05f)) {
+        if (skip || frame_counter >= to_frame(frame_delay)) {
             frame_counter = 0;
             if (detailed_state == STATE_ANIMATION_INITIALIZING_DECK) {
                 if (card_counter <= 27) {
@@ -125,6 +126,16 @@ void Game::update() {
                     transit.push_back(c);
                     cursor.erase(cursor.begin());
                 }
+            } else if (detailed_state == STATE_ANIMATION_FLIP_DECK) {
+                if (!field[DECK][1].empty()) {
+                    Card c = field[DECK][1].back();
+                    Position p = c.get_position_data();
+                    p.coord.second = field_rect[DECK][0].getPosition();
+                    p.loc.second = sf::Vector3i(DECK, 0, field[DECK][0].size());
+                    c.init_animation(STATE_ANIMATION_MOVING_CARD, p, to_frame(0.3f));
+                    transit.push_back(c);
+                    field[DECK][1].pop_back();
+                }
             } else if (detailed_state == STATE_ANIMATION_SOLVE_DECK) {
                 //TODO implement solving deck
             }
@@ -146,7 +157,11 @@ void Game::update() {
                         if (card_counter > 27) {
                             master_state = STATE_PLAYING;
                         }
-                    } else if (cursor.empty()) {
+                    } else if (detailed_state == STATE_ANIMATION_FLIP_DECK) {
+                        if (field[DECK][1].empty()) {
+                            master_state = STATE_PLAYING;
+                        }
+                    }else if (cursor.empty()) {
                         master_state = STATE_PLAYING;
                     }
                 }
@@ -159,10 +174,10 @@ bool Game::valid_placement(int status, int group, int column, int row) {
     if (status == -1) return false;
     Card c = cursor.front();
     if (status == EMPTY_SPOT) {
-        if (cursor.size() == 1) {
-            if (group == HOME && c.get_value() == 1) {
-                return true;
-            } else if (group == PLAY_FIELD && c.get_value() == 13) {
+        if (group == HOME && c.get_value() == 1 && cursor.size() == 1) {
+            return true;
+        } else {
+            if (group == PLAY_FIELD && c.get_value() == 13) {
                 return true;
             }
         }
@@ -225,43 +240,73 @@ void Game::anim_flip_card() {
 void Game::anim_return_card() {
     master_state = STATE_ANIMATION;
     detailed_state = STATE_ANIMATION_RETURN_CARD;
+    frame_delay = 0.05f;
+}
+
+void Game::anim_move_and_flip_card() {
+    master_state = STATE_ANIMATION;
+    detailed_state = STATE_ANIMATION_MOVE_AND_FLIP_CARD;
+}
+
+void Game::anim_flip_deck() {
+    master_state = STATE_ANIMATION;
+    detailed_state = STATE_ANIMATION_FLIP_DECK;
+    frame_delay = 0.03f;
 }
 
 void Game::mouse_pressed(sf::Vector2f coord) {
-    if (master_state == STATE_ANIMATION && detailed_state != STATE_ANIMATION_FLIP_CARD) {
+    if (master_state == STATE_ANIMATION) {
         skip = true;
         while (master_state != STATE_PLAYING) {
             update();
         }
         skip = false;
-    } else {
-        int group, column, row;
-        int status = locate_card(coord, group, column, row);
-        if (status >= HOME && status <= PLAY_FIELD) {
-            //click on a face up card
-            if (field[group][column][row].get_flip_state() == CARD_FACE_UP) {
-                mouse_down = true;
-                for (int i = row; i < field[group][column].size(); i++) {
-                    Card c = field[group][column][i];
-                    Position p = c.get_position_data();
-                    p.coord.first = field[group][column][i].get_center();
-                    p.loc.first = sf::Vector3i(group, column, i);
-                    c.set_position_data(p);
-                    cursor.push_back(c);
-                    field[group][column].erase(field[group][column].begin() + i--);
-                    mouse_moved(coord);
-                }
-            } else { //potentially flip a face down card
-                if (field[group][column].size() - 1 == row) {
-                    anim_flip_card();
-                    field[group][column][row].init_animation(STATE_ANIMATION_FLIP_CARD, to_frame(0.3f));
-                    transit.push_back(field[group][column][row]);
-                    field[group][column].pop_back();
+        if (detailed_state != STATE_ANIMATION_FLIP_CARD && detailed_state != STATE_ANIMATION_MOVING_CARD) {
+            return;
+        }
+    }
+    int group, column, row;
+    int status = locate_card(coord, group, column, row);
+    if (status >= HOME && status <= PLAY_FIELD || status == DECK && column == 1) { //clicked some valid location on field
+        //click on a face up card
+        if (field[group][column][row].get_flip_state() == CARD_FACE_UP) { //add card to cursor
+            mouse_down = true;
+            for (int i = row; i < field[group][column].size(); i++) {
+                Card c = field[group][column][i];
+                Position p = c.get_position_data();
+                p.coord.first = field[group][column][i].get_center();
+                p.loc.first = sf::Vector3i(group, column, i);
+                c.set_position_data(p);
+                cursor.push_back(c);
+                field[group][column].erase(field[group][column].begin() + i--);
+                mouse_moved(coord);
+            }
+        } else { //card is face down, see if its at the front of the pile
+            if (field[group][column].size() - 1 == row) {
+                anim_flip_card();
+                field[group][column][row].init_animation(STATE_ANIMATION_FLIP_CARD, to_frame(0.3f));
+                transit.push_back(field[group][column][row]);
+                field[group][column].pop_back();
+            }
+        }
+    } else if (status == DECK || status == EMPTY_SPOT && group == DECK) { //if deck group was clicked
+        if (field[DECK][0].empty()) { //deck is empty, return deck contents
+            if (!field[DECK][1].empty()) {
+                anim_flip_deck();
+                for (int i = 0; i < field[DECK][1].size(); i++) {
+                    field[DECK][1][i].set_flip_state(CARD_FACE_DOWN);
                 }
             }
-        } else if (status == DECK || status == EMPTY_SPOT && group == DECK) {
-            //TODO deck clicked
-            std::cout << "Deck clicked" << "\n";
+        } else if (status == DECK) { //move and flip card
+            anim_move_card();
+            Card c = field[DECK][0].back();
+            c.set_flip_state(CARD_FACE_UP);
+            Position p = c.get_position_data();
+            p.coord.second = field_rect[DECK][1].getPosition();
+            p.loc.second = sf::Vector3i(DECK, 1, field[DECK][1].size());
+            c.init_animation(STATE_ANIMATION_MOVING_CARD, p, to_frame(0.25f));
+            transit.push_back(c);
+            field[DECK][0].pop_back();
         }
     }
 }
@@ -271,7 +316,7 @@ void Game::mouse_released(sf::Vector2f coord) {
         mouse_down = false;
         int group, column, row;
         int status = locate_card(coord, group, column, row);
-        if (valid_placement(status, group, column, row)) {
+        if (valid_placement(status, group, column, row)) { //move cards to new location if valid
             anim_move_card();
             for (int i = 0; i < cursor.size(); i++) {
                 Position p = cursor[i].get_position_data();
@@ -317,7 +362,9 @@ void Game::draw(sf::RenderWindow &window) {
         field[DECK][0].back().draw(window, backside);
     }
     //draw cards on unflipped deck
-    //TODO implement drawing cards on unflipped deck, possibly implement 3 card rule
+    if (!field[DECK][1].empty()) {
+        field[DECK][1].back().draw(window, backside);
+    }
     //draw cards on home
     for (int i = 0; i < field[HOME].size(); i++) {
         if (!field[HOME][i].empty()) {
