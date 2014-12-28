@@ -168,6 +168,7 @@ void Game::update() {
             }
         }
     }
+    //TODO implement has won and is solvable here
 }
 
 bool Game::valid_placement(int status, int group, int column, int row) {
@@ -254,6 +255,29 @@ void Game::anim_flip_deck() {
     frame_delay = 0.03f;
 }
 
+bool Game::has_won() {
+    for (int i = 0; i < field[HOME].size(); i++) {
+        if (field[HOME][i].size() != 13) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool Game::is_solvable() {
+    if (!field[DECK][0].empty() || !field[DECK][1].empty()) {
+        return false;
+    }
+    for (int i = 0; i < field[PLAY_FIELD].size(); i++) {
+        for (int j = 0; j < field[PLAY_FIELD][i].size(); j++) {
+            if (field[PLAY_FIELD][i][j].get_flip_state() == CARD_FACE_DOWN) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 void Game::mouse_pressed(sf::Vector2f coord) {
     if (master_state == STATE_ANIMATION) {
         skip = true;
@@ -268,6 +292,10 @@ void Game::mouse_pressed(sf::Vector2f coord) {
     int group, column, row;
     int status = locate_card(coord, group, column, row);
     if (status >= HOME && status <= PLAY_FIELD || status == DECK && column == 1) { //clicked some valid location on field
+        //check if clicking on flipped deck
+        if (status == DECK && row != field[DECK][1].size() - 1) {
+            return;
+        }
         //click on a face up card
         if (field[group][column][row].get_flip_state() == CARD_FACE_UP) { //add card to cursor
             mouse_down = true;
@@ -299,14 +327,29 @@ void Game::mouse_pressed(sf::Vector2f coord) {
             }
         } else if (status == DECK) { //move and flip card
             anim_move_card();
-            Card c = field[DECK][0].back();
-            c.set_flip_state(CARD_FACE_UP);
-            Position p = c.get_position_data();
-            p.coord.second = field_rect[DECK][1].getPosition();
-            p.loc.second = sf::Vector3i(DECK, 1, field[DECK][1].size());
-            c.init_animation(STATE_ANIMATION_MOVING_CARD, p, to_frame(0.25f));
-            transit.push_back(c);
-            field[DECK][0].pop_back();
+            //recorrect the position of all previous cards
+            int flipped_counter = field[DECK][0].size() >= 3 ? field[DECK][1].size() - 3 : 0;
+            for (int i = flipped_counter; i < field[DECK][1].size(); i++) {
+                Card c = field[DECK][1][i];
+                Position p = c.get_position_data();
+                p.coord.second = field_rect[DECK][1].getPosition();
+                c.init_animation(STATE_ANIMATION_MOVING_CARD, p, to_frame(0.25f));
+                transit.push_back(c);
+                field[DECK][1].erase(field[DECK][1].begin() + i--);
+            }
+            //launch animation for moving card
+            flipped_counter = field[DECK][0].size() >= 3 ? 3 : field[DECK][0].size();
+            for (int i = 0; i < flipped_counter; i++) {
+                Card c = field[DECK][0].back();
+                c.set_flip_state(CARD_FACE_UP);
+                Position p = c.get_position_data();
+                p.coord.second = field_rect[DECK][1].getPosition();
+                p.coord.second.x += HORZ_CARD_SPACING * i;
+                p.loc.second = sf::Vector3i(DECK, 1, field[DECK][1].size());
+                c.init_animation(STATE_ANIMATION_MOVING_CARD, p, to_frame(0.25f));
+                transit.push_back(c);
+                field[DECK][0].pop_back();
+            }
         }
     }
 }
@@ -362,8 +405,12 @@ void Game::draw(sf::RenderWindow &window) {
         field[DECK][0].back().draw(window, backside);
     }
     //draw cards on unflipped deck
-    if (!field[DECK][1].empty()) {
-        field[DECK][1].back().draw(window, backside);
+    int flipped_counter = field[DECK][1].size() - 3;
+    if (field[DECK][1].size() < 3) {
+        flipped_counter = 0;
+    }
+    for (int i = flipped_counter; i < field[DECK][1].size(); i++) {
+        field[DECK][1][i].draw(window, backside);
     }
     //draw cards on home
     for (int i = 0; i < field[HOME].size(); i++) {

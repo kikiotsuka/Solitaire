@@ -31,6 +31,7 @@ extern const int STATE_ANIMATION_FLIP_DECK = 5;
 extern const int STATE_ANIMATION_SOLVE_DECK = 6;
 
 extern const float VERT_CARD_SPACING = 22.0f;
+extern const float HORZ_CARD_SPACING = 22.0f;
 
 extern const int DECK = 0;
 extern const int HOME = 1;

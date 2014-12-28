@@ -39,6 +39,7 @@ extern const int STATE_ANIMATION_SOLVE_DECK;
 
 //spacing the cards
 extern const float VERT_CARD_SPACING;
+extern const float HORZ_CARD_SPACING;
 
 //group identifiers
 extern const int DECK;

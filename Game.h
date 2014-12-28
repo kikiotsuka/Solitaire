@@ -31,6 +31,9 @@ private:
     void anim_return_card();
     void anim_move_and_flip_card();
     void anim_flip_deck();
+    //game state checking
+    bool has_won();
+    bool is_solvable();
 
     float to_frame(float time);
 public:
