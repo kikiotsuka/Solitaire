@@ -40,6 +40,7 @@ void Game::reset_game() {
     col_tracker = sf::Vector2i(0, 0);
     frame_delay = 0.05f;
     skip = mouse_down = false;
+    won = solvable = false;
 }
 
 std::vector<Card> Game::populate_deck() {
@@ -137,21 +138,54 @@ void Game::update() {
                     field[DECK][1].pop_back();
                 }
             } else if (detailed_state == STATE_ANIMATION_SOLVE_DECK) {
-                //TODO implement solving deck
+                //locate card with lowest value on left most position
+                Position p(sf::Vector3i(-1, -1, -1));
+                int min_card_val = -1;
+                for (int i = 0; i < field[PLAY_FIELD].size(); i++) {
+                    if (min_card_val == -1 || field[PLAY_FIELD][i].back().get_value() < min_card_val) {
+                        p.loc.first = sf::Vector3i(PLAY_FIELD, i, field[PLAY_FIELD][i].size());
+                        p.coord.first = field[PLAY_FIELD][i].back().get_center();
+                        min_card_val = field[PLAY_FIELD][i].back().get_value();
+                    }
+                }
+                //card to move
+                Card c = field[PLAY_FIELD][p.loc.first.y].back();
+                //locate home location to move it
+                int col;
+                for (col = 0; col < field[HOME].size(); col++) {
+                    //check if the column is empty
+                    if (field[HOME][col].empty()) {
+                        if (c.get_value() == 1) { //if we have an ace, place it
+                            break;
+                        }
+                    } else if (field[HOME][col].back().get_suit() == c.get_suit()) {
+                        //found pile of same suit
+                        break;
+                    }
+                }
+                //launch moving animation
+                p.loc.second = sf::Vector3i(HOME, col, field[HOME][col].size() - 1);
+                p.coord.second = field_rect[HOME][col].getPosition();
+                c.init_animation(STATE_ANIMATION_MOVING_CARD, p, to_frame(0.5f));
+                transit.push_back(c);
+                field[PLAY_FIELD][p.loc.first.y].pop_back();
             }
         }
         //update aimations
         for (int i = 0; i < transit.size(); i++) {
+            //check if we should skip the animation or not
             if (skip) {
                 transit[i].finish();
             } else {
                 transit[i].next();
             }
+            //removed animations that are finished, add it to its new location
             if (transit[i].animation_finish()) {
                 Position p = transit[i].get_position_data();
                 sf::Vector3i loc = p.loc.second;
                 field[loc.x][loc.y].push_back(transit[i]);
                 transit.erase(transit.begin() + i--);
+                //check if the animation sequence is over
                 if (transit.empty()) {
                     if (detailed_state == STATE_ANIMATION_INITIALIZING_DECK) {
                         if (card_counter > 27) {
@@ -168,11 +202,20 @@ void Game::update() {
             }
         }
     }
-    //TODO implement has won and is solvable here
+    if (!solvable && is_solvable()) {
+        solvable = true;
+        std::cout << "Game is solvable" << "\n";
+        std::cout << "Hit S to auto-complete the game" << "\n";
+    }
+    if (!won && has_won()) {
+        won = true;
+        std::cout << "Gratz you win" << "\n";
+    }
 }
 
 bool Game::valid_placement(int status, int group, int column, int row) {
     if (status == -1) return false;
+    if (row != field[group][column].size() - 1) return false;
     Card c = cursor.front();
     if (status == EMPTY_SPOT) {
         if (group == HOME && c.get_value() == 1 && cursor.size() == 1) {
@@ -252,7 +295,7 @@ void Game::anim_move_and_flip_card() {
 void Game::anim_flip_deck() {
     master_state = STATE_ANIMATION;
     detailed_state = STATE_ANIMATION_FLIP_DECK;
-    frame_delay = 0.03f;
+    frame_delay = 0.01f;
 }
 
 bool Game::has_won() {
@@ -339,6 +382,7 @@ void Game::mouse_pressed(sf::Vector2f coord) {
             }
             //launch animation for moving card
             flipped_counter = field[DECK][0].size() >= 3 ? 3 : field[DECK][0].size();
+            flipped_counter = 1; //TODO DEBUG FIXME REMOVE
             for (int i = 0; i < flipped_counter; i++) {
                 Card c = field[DECK][0].back();
                 c.set_flip_state(CARD_FACE_UP);
@@ -391,6 +435,12 @@ void Game::mouse_left() {
         mouse_down = false;
         anim_return_card();
     }
+}
+
+void Game::auto_solve() {
+    std::cout << "Attempting auto solve" << "\n";
+    master_state = STATE_ANIMATION;
+    detailed_state = STATE_ANIMATION_SOLVE_DECK;
 }
 
 void Game::draw(sf::RenderWindow &window) {

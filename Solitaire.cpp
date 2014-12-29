@@ -45,6 +45,9 @@ void handle_events(sf::RenderWindow &window, Game &game) {
             } else if (e.key.code == sf::Keyboard::F2) {
                 game.reset_game();
                 break;
+            } else if (e.key.code == sf::Keyboard::S) {
+                game.auto_solve();
+                break;
             }
         case sf::Event::MouseButtonPressed:
             if (e.mouseButton.button == sf::Mouse::Left) {

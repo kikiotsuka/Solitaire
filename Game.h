@@ -18,6 +18,7 @@ private:
     float frame_delay;
     sf::Vector2i col_tracker;
     bool skip, mouse_down;
+    bool won, solvable;
     sf::Texture texture;
     Card backside;
     //initialization
@@ -44,6 +45,7 @@ public:
     void mouse_released(sf::Vector2f coord);
     void mouse_moved(sf::Vector2f coord);
     void mouse_left();
+    void auto_solve();
     void draw(sf::RenderWindow &window);
 };
 
