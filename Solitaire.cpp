@@ -5,8 +5,6 @@
 #include "Meta.h"
 #include "Game.h"
 
-#include <iostream> //TODO remove me
-
 void handle_events(sf::RenderWindow &window, Game &game);
 
 int main() {
@@ -20,14 +18,13 @@ int main() {
     Game game;
 
     while (window.isOpen()) {
-        handle_events(window, game);
-        //if user quit the game
-        if (!window.isOpen()) break;
         game.update();
 
         window.clear(sf::Color(14, 142, 57));
         game.draw(window);
         window.display();
+
+        handle_events(window, game);
     }
 }
 
@@ -41,14 +38,14 @@ void handle_events(sf::RenderWindow &window, Game &game) {
         case sf::Event::KeyPressed:
             if (e.key.code == sf::Keyboard::Q) {
                 window.close();
-                break;
             } else if (e.key.code == sf::Keyboard::F2) {
                 game.reset_game();
-                break;
+            } else if (e.key.code == sf::Keyboard::C) {
+                game.flip_draw_mode();
             } else if (e.key.code == sf::Keyboard::S) {
                 game.auto_solve();
-                break;
             }
+            break;
         case sf::Event::MouseButtonPressed:
             if (e.mouseButton.button == sf::Mouse::Left) {
                 game.mouse_pressed(sf::Vector2f(e.mouseButton.x, e.mouseButton.y));

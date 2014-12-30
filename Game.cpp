@@ -1,6 +1,5 @@
 #include "Game.h"
-
-#include <iostream> //TODO remove me
+#include <iostream>
 
 Game::Game() {
     srand(time(NULL));
@@ -9,7 +8,9 @@ Game::Game() {
     }
     texture.setSmooth(true);
     backside.set_texture(texture);
+    three_card_rule = true;
     init_rect();
+    init_text();
     reset_game();
 }
 
@@ -49,12 +50,12 @@ std::vector<Card> Game::populate_deck() {
     for (int i = SUIT_CLUBS; i <= SUIT_SPADES; i++) {
         for (int j = 1; j <= 13; j++) {
             shuffle_deck.push_back(Card(i, j, texture));
+            shuffle_deck.back().set_center_position(field_rect[DECK][0].getPosition());
         }
     }
     //randomly pull cards from sotrted deck
     while (shuffle_deck.size() != 0) {
         int index = rand() % shuffle_deck.size();
-        shuffle_deck[index].set_center_position(field_rect[0][0].getPosition());
         ret.push_back(shuffle_deck[index]);
         shuffle_deck.erase(shuffle_deck.begin() + index);
     }
@@ -89,6 +90,28 @@ void Game::init_rect() {
     field_rect.push_back(deck);
     field_rect.push_back(home);
     field_rect.push_back(play_field);
+}
+
+void Game::init_text() {
+    if (!font.loadFromFile("times.ttf")) {
+        std::cerr << "Failure, could not load font" << "\n";
+    }
+    info_text.setFont(font);
+    won_text.setFont(font);
+    solvable_text.setFont(font);
+    info_text.setString("Press F2 to restart, Q to quit, C to switch number of cards to draw");
+    won_text.setString("Congratulations! You won!");
+    solvable_text.setString("Press S to auto-complete the game!");
+    info_text.setColor(sf::Color::Black);
+    won_text.setColor(sf::Color::Black);
+    solvable_text.setColor(sf::Color::Black);
+    info_text.setCharacterSize(15);
+    won_text.setCharacterSize(30);
+    solvable_text.setCharacterSize(15);
+    info_text.setPosition(10, S_HEIGHT - 20);
+    won_text.setOrigin(won_text.getGlobalBounds().width / 2, won_text.getGlobalBounds().height / 2);
+    won_text.setPosition(S_WIDTH / 2, S_HEIGHT / 2);
+    solvable_text.setPosition(10, info_text.getPosition().y - 20);
 }
 
 void Game::update() {
@@ -142,33 +165,38 @@ void Game::update() {
                 Position p(sf::Vector3i(-1, -1, -1));
                 int min_card_val = -1;
                 for (int i = 0; i < field[PLAY_FIELD].size(); i++) {
+                    if (field[PLAY_FIELD][i].empty()) continue;
                     if (min_card_val == -1 || field[PLAY_FIELD][i].back().get_value() < min_card_val) {
-                        p.loc.first = sf::Vector3i(PLAY_FIELD, i, field[PLAY_FIELD][i].size());
+                        p.loc.first = sf::Vector3i(PLAY_FIELD, i, field[PLAY_FIELD][i].size() - 1);
                         p.coord.first = field[PLAY_FIELD][i].back().get_center();
                         min_card_val = field[PLAY_FIELD][i].back().get_value();
                     }
                 }
-                //card to move
-                Card c = field[PLAY_FIELD][p.loc.first.y].back();
-                //locate home location to move it
-                int col;
-                for (col = 0; col < field[HOME].size(); col++) {
-                    //check if the column is empty
-                    if (field[HOME][col].empty()) {
-                        if (c.get_value() == 1) { //if we have an ace, place it
+                //possibility that there are no cards on field
+                //check if we found a card
+                if (p.loc.first.x != -1) {
+                    //card to move
+                    Card c = field[PLAY_FIELD][p.loc.first.y].back();
+                    //locate home location to move it
+                    int col;
+                    for (col = 0; col < field[HOME].size(); col++) {
+                        //check if the column is empty
+                        if (field[HOME][col].empty()) {
+                            if (c.get_value() == 1) { //if we have an ace, place it
+                                break;
+                            }
+                        } else if (field[HOME][col].back().get_suit() == c.get_suit()) {
+                            //found pile of same suit
                             break;
                         }
-                    } else if (field[HOME][col].back().get_suit() == c.get_suit()) {
-                        //found pile of same suit
-                        break;
                     }
+                    //launch moving animation
+                    p.loc.second = sf::Vector3i(HOME, col, field[HOME][col].size() - 1);
+                    p.coord.second = field_rect[HOME][col].getPosition();
+                    c.init_animation(STATE_ANIMATION_MOVING_CARD, p, to_frame(0.5f));
+                    transit.push_back(c);
+                    field[PLAY_FIELD][p.loc.first.y].pop_back();
                 }
-                //launch moving animation
-                p.loc.second = sf::Vector3i(HOME, col, field[HOME][col].size() - 1);
-                p.coord.second = field_rect[HOME][col].getPosition();
-                c.init_animation(STATE_ANIMATION_MOVING_CARD, p, to_frame(0.5f));
-                transit.push_back(c);
-                field[PLAY_FIELD][p.loc.first.y].pop_back();
             }
         }
         //update aimations
@@ -195,21 +223,24 @@ void Game::update() {
                         if (field[DECK][1].empty()) {
                             master_state = STATE_PLAYING;
                         }
-                    }else if (cursor.empty()) {
+                    } else if (detailed_state == STATE_ANIMATION_SOLVE_DECK) {
+                        if (has_won()) {
+                            master_state = STATE_PLAYING;
+                        }
+                    } else if (cursor.empty()) {
                         master_state = STATE_PLAYING;
+                    }
+                    //this is here because any card moving action requires animation
+                    //during transition, cards are not all present on the field
+                    if (!solvable && is_solvable()) {
+                        solvable = true;
                     }
                 }
             }
         }
     }
-    if (!solvable && is_solvable()) {
-        solvable = true;
-        std::cout << "Game is solvable" << "\n";
-        std::cout << "Hit S to auto-complete the game" << "\n";
-    }
     if (!won && has_won()) {
         won = true;
-        std::cout << "Gratz you win" << "\n";
     }
 }
 
@@ -371,9 +402,13 @@ void Game::mouse_pressed(sf::Vector2f coord) {
         } else if (status == DECK) { //move and flip card
             anim_move_card();
             //recorrect the position of all previous cards
-            int flipped_counter = field[DECK][0].size() >= 3 ? field[DECK][1].size() - 3 : 0;
+            int flipped_counter = 1;
+            if (three_card_rule) {
+                flipped_counter = field[DECK][0].size() >= 3 ? field[DECK][1].size() - 3 : 0;
+            }
             for (int i = flipped_counter; i < field[DECK][1].size(); i++) {
                 Card c = field[DECK][1][i];
+                if (c.get_center() == field_rect[DECK][1].getPosition()) continue;
                 Position p = c.get_position_data();
                 p.coord.second = field_rect[DECK][1].getPosition();
                 c.init_animation(STATE_ANIMATION_MOVING_CARD, p, to_frame(0.25f));
@@ -381,8 +416,10 @@ void Game::mouse_pressed(sf::Vector2f coord) {
                 field[DECK][1].erase(field[DECK][1].begin() + i--);
             }
             //launch animation for moving card
-            flipped_counter = field[DECK][0].size() >= 3 ? 3 : field[DECK][0].size();
-            flipped_counter = 1; //TODO DEBUG FIXME REMOVE
+            flipped_counter = 1;
+            if (three_card_rule) {
+                flipped_counter = field[DECK][0].size() >= 3 ? 3 : field[DECK][0].size();
+            }
             for (int i = 0; i < flipped_counter; i++) {
                 Card c = field[DECK][0].back();
                 c.set_flip_state(CARD_FACE_UP);
@@ -437,10 +474,17 @@ void Game::mouse_left() {
     }
 }
 
+void Game::flip_draw_mode() {
+    three_card_rule = !three_card_rule;
+    reset_game();
+}
+
 void Game::auto_solve() {
-    std::cout << "Attempting auto solve" << "\n";
-    master_state = STATE_ANIMATION;
-    detailed_state = STATE_ANIMATION_SOLVE_DECK;
+    if (solvable) {
+        master_state = STATE_ANIMATION;
+        detailed_state = STATE_ANIMATION_SOLVE_DECK;
+        frame_delay = 0.1f;
+    }
 }
 
 void Game::draw(sf::RenderWindow &window) {
@@ -482,6 +526,13 @@ void Game::draw(sf::RenderWindow &window) {
     for (int i = 0; i < cursor.size(); i++) {
         cursor[i].draw(window, backside);
     }
+    //draw text info on screen
+    if (won) {
+        window.draw(won_text);
+    } else if (solvable) {
+        window.draw(solvable_text);
+    }
+    window.draw(info_text);
 }
 
 //takes given time and calculates equivalent FPS value

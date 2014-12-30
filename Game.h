@@ -18,12 +18,17 @@ private:
     float frame_delay;
     sf::Vector2i col_tracker;
     bool skip, mouse_down;
+    bool three_card_rule;
     bool won, solvable;
     sf::Texture texture;
     Card backside;
+    //text for information
+    sf::Font font;
+    sf::Text info_text, won_text, solvable_text;
     //initialization
     std::vector<Card> populate_deck();
     void init_rect();
+    void init_text();
     bool valid_placement(int status, int group, int column, int row);
     int locate_card(sf::Vector2f coord, int &group, int &column, int &row);
     //animation sequence
@@ -45,6 +50,7 @@ public:
     void mouse_released(sf::Vector2f coord);
     void mouse_moved(sf::Vector2f coord);
     void mouse_left();
+    void flip_draw_mode();
     void auto_solve();
     void draw(sf::RenderWindow &window);
 };
