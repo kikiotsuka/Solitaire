@@ -1,10 +1,13 @@
 #include "Game.h"
-#include <iostream>
 
 Game::Game() {
+    kill = false;
     srand(time(NULL));
     if (!texture.loadFromFile("solitaire_sprite_sheet.png")) {
-        std::cerr << "Fatal error: Could not load sprite sheet" << "\n";
+        kill = true;
+        freopen("error.txt", "w", stdout);
+        std::cout << "Fatal error: Could not load sprite sheet" << "\n";
+        return;
     }
     texture.setSmooth(true);
     backside.set_texture(texture);
@@ -94,7 +97,9 @@ void Game::init_rect() {
 
 void Game::init_text() {
     if (!font.loadFromFile("times.ttf")) {
-        std::cerr << "Failure, could not load font" << "\n";
+        freopen("error.txt", "w", stdout);
+        std::cout << "Failure, could not load font" << "\n";
+        return;
     }
     info_text.setFont(font);
     won_text.setFont(font);
@@ -485,6 +490,10 @@ void Game::auto_solve() {
         detailed_state = STATE_ANIMATION_SOLVE_DECK;
         frame_delay = 0.1f;
     }
+}
+
+bool Game::get_kill() {
+    return kill;
 }
 
 void Game::draw(sf::RenderWindow &window) {

@@ -17,6 +17,10 @@ int main() {
 
     Game game;
 
+    if (game.get_kill()) {
+        return 1;
+    }
+
     while (window.isOpen()) {
         game.update();
 

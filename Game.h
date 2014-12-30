@@ -4,6 +4,8 @@
 #include <SFML/Graphics.hpp>
 #include <vector>
 #include <utility>
+#include <iostream>
+#include <cstdio>
 #include "Card.h"
 #include "Meta.h"
 
@@ -20,6 +22,7 @@ private:
     bool skip, mouse_down;
     bool three_card_rule;
     bool won, solvable;
+    bool kill; //for failure to load things
     sf::Texture texture;
     Card backside;
     //text for information
@@ -52,6 +55,7 @@ public:
     void mouse_left();
     void flip_draw_mode();
     void auto_solve();
+    bool get_kill();
     void draw(sf::RenderWindow &window);
 };
 
