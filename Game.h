@@ -14,6 +14,7 @@ private:
     int master_state, detailed_state;
     std::vector<std::vector<std::vector<Card> > > field;
     std::vector<std::vector<sf::RectangleShape> > field_rect;
+    std::vector<int> ace_locations;
     //use for storing cards in animation, cursor moving
     std::vector<Card> transit, cursor;
     int frame_counter, card_counter;

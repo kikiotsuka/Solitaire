@@ -22,6 +22,8 @@ void Game::reset_game() {
     master_state = STATE_ANIMATION;
     detailed_state = STATE_ANIMATION_INITIALIZING_DECK;
     //field handlers
+    ace_locations.clear();
+    ace_locations = std::vector<int>(4, -1);
     field.clear();
     std::vector<Card> populated_deck = populate_deck();
     std::vector<std::vector<Card> > deck;
@@ -186,11 +188,12 @@ void Game::update() {
                     int col;
                     for (col = 0; col < field[HOME].size(); col++) {
                         //check if the column is empty
-                        if (field[HOME][col].empty()) {
+                        if (field[HOME][col].empty() && ace_locations[col] == -1) {
                             if (c.get_value() == 1) { //if we have an ace, place it
+                                ace_locations[col] = c.get_suit();
                                 break;
                             }
-                        } else if (field[HOME][col].back().get_suit() == c.get_suit()) {
+                        } else if (ace_locations[col] == c.get_suit()) {
                             //found pile of same suit
                             break;
                         }
@@ -253,8 +256,16 @@ bool Game::valid_placement(int status, int group, int column, int row) {
     if (status == -1) return false;
     if (row != field[group][column].size() - 1) return false;
     Card c = cursor.front();
-    if (status == EMPTY_SPOT) {
-        if (group == HOME && c.get_value() == 1 && cursor.size() == 1) {
+    if (status == EMPTY_SPOT) { //if the pile is empty
+        if (group == HOME && c.get_value() == 1 && cursor.size() == 1) { //place an ace
+            //check if ace was moved from different column
+            for (int i = 0; i < ace_locations.size(); i++) {
+                if (ace_locations[i] == cursor.front().get_suit()) {
+                    ace_locations[i] = -1;
+                    break;
+                }
+            }
+            ace_locations[column] = cursor.front().get_suit();
             return true;
         } else {
             if (group == PLAY_FIELD && c.get_value() == 13) {
@@ -486,6 +497,13 @@ void Game::flip_draw_mode() {
 
 void Game::auto_solve() {
     if (solvable) {
+        if (master_state == STATE_ANIMATION) {
+            skip = true;
+            while (master_state == STATE_ANIMATION) {
+                update();
+            }
+            skip = false;
+        }
         master_state = STATE_ANIMATION;
         detailed_state = STATE_ANIMATION_SOLVE_DECK;
         frame_delay = 0.1f;
