@@ -380,7 +380,7 @@ void Game::mouse_pressed(sf::Vector2f coord) {
             return;
         }
         //click on a face up card
-        if (field[group][column][row].get_flip_state() == CARD_FACE_UP) { //add card(s) to cursor
+        if (field[group][column][row].get_flip_state() == CARD_FACE_UP) { //add card to cursor
             mouse_down = true;
             for (int i = row; i < field[group][column].size(); i++) {
                 Card c = field[group][column][i];
@@ -394,12 +394,7 @@ void Game::mouse_pressed(sf::Vector2f coord) {
             }
             //check if ace is moved out of home area
             if (cursor.size() == 1 && cursor.front().get_value() == 1) {
-                for (int i = 0; i < ace_locations.size(); i++) {
-                    if (ace_locations[i] == cursor.front().get_suit()) {
-                        ace_locations[i] = -1;
-                        break;
-                    }
-                }
+
             }
         } else { //card is face down, see if its at the front of the pile
             if (field[group][column].size() - 1 == row) {
