@@ -6,7 +6,9 @@ Animation::Animation(int frames) {
     done = false;
 }
 
-sf::Vector2f Animation::next() { }
+sf::Vector2f Animation::next() {
+	return sf::Vector2f(0.0, 0.0);
+}
 
 sf::Vector2f Animation::finish() {
     frame_counter = frames;
